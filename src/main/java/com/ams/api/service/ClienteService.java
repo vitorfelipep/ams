@@ -16,8 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import com.ams.api.domain.Cliente;
+import com.ams.api.domain.Dependente;
 import com.ams.api.repository.ClienteRepository;
+import com.ams.api.repository.DependenteRepository;
 import com.ams.api.service.exception.ExistingClientWithSameCPFException;
+import com.ams.api.service.exception.ExistingDependentWithSameCPFException;
 
 /**
  * @author vitor
@@ -33,6 +36,9 @@ public class ClienteService implements Serializable{
 	@Autowired
 	private ClienteRepository clienteRepository;
 	
+	@Autowired
+	private DependenteRepository dependenteRepository;
+	
 	public List<Cliente> findAll() {
 		return clienteRepository.findAll();
 	}
@@ -45,17 +51,14 @@ public class ClienteService implements Serializable{
 		clienteAlreadyExistent(cliente);
 		
 		Cliente clienteSaved = clienteRepository.save(cliente);
-		if (!CollectionUtils.isEmpty(cliente.getDependentes())) {
-			cliente.getDependentes().forEach(d -> {
-				if (d.getTitular() == null) {
-					d.setTitular(clienteSaved);
-				}
-			});
-			cliente = clienteRepository.save(cliente);
+		if (!CollectionUtils.isEmpty(clienteSaved.getDependentes())) {
+			verififyDependentsBeforeSave(clienteSaved);
+			clienteSaved = clienteRepository.save(clienteSaved);
 		}
 		
-		return cliente;
+		return clienteSaved;
 	}
+
 
 	/**
 	 * @param Cliente
@@ -72,11 +75,7 @@ public class ClienteService implements Serializable{
 		Optional<Cliente> clienteSaved = clienteRepository.findById(codigo);
 		if (clienteSaved.isPresent()) {
 			if (!CollectionUtils.isEmpty(cliente.getDependentes())) {
-				cliente.getDependentes().forEach(d -> {
-					if (d.getTitular() == null) {
-						d.setTitular(clienteSaved.get());
-					}
-				});
+				verififyDependents(cliente, clienteSaved);
 			}
 			BeanUtils.copyProperties(cliente, clienteSaved.get(), "id");
 			return clienteRepository.save(clienteSaved.get());
@@ -84,8 +83,41 @@ public class ClienteService implements Serializable{
 			return clienteSaved.orElse(null);
 		}
 	}
+
+	/**
+	 * @param cliente
+	 * @param clienteSaved
+	 */
+	private void verififyDependents(Cliente cliente, Optional<Cliente> clienteSaved) {
+		cliente.getDependentes().forEach(d -> {
+			if (d.getId() == null) {
+				List<Optional<Dependente>> dependentesOptionais = dependenteRepository.findByCpfIgnoreCase(d.getCpf());
+				if (!CollectionUtils.isEmpty(dependentesOptionais)) {
+					throw new ExistingDependentWithSameCPFException("Já existe um dependente cadastrado com este cpf!!");
+				}
+			}
+			
+			if (d.getTitular() == null) {
+				d.setTitular(clienteSaved.get());
+			}
+		});
+	}
 	
 	
+	private void verififyDependentsBeforeSave(@Valid Cliente cliente) {
+		cliente.getDependentes().forEach(d -> {
+			if (d.getId() == null) {
+				List<Optional<Dependente>> dependentesOptionais = dependenteRepository.findByCpfIgnoreCase(d.getCpf());
+				if (!CollectionUtils.isEmpty(dependentesOptionais)) {
+					throw new ExistingDependentWithSameCPFException("Já existe um dependente cadastrado com este cpf!!");
+				}
+			}
+			if (d.getTitular() == null) {
+				d.setTitular(cliente);
+			}
+		});
+		
+	}
 	
 	
 }

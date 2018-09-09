@@ -33,6 +33,7 @@ import com.ams.api.event.RecursoCriadoEvent;
 import com.ams.api.exceptionHandler.AmsExceptionHandler.Erro;
 import com.ams.api.service.ClienteService;
 import com.ams.api.service.exception.ExistingClientWithSameCPFException;
+import com.ams.api.service.exception.ExistingDependentWithSameCPFException;
 
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -115,6 +116,14 @@ public class ClienteResource implements Serializable {
 	@ExceptionHandler( { ExistingClientWithSameCPFException.class } )
 	public ResponseEntity<Object> handleCustomerWithSameCpfException(ExistingClientWithSameCPFException ex) {
 		String mensagemUsuario = messageSource.getMessage("pessoa.com.cpf.existente",null, LocaleContextHolder.getLocale());  
+		String mensagemDesenvolvedor = ex.toString();
+		List<Erro> erros = Arrays.asList(new Erro(mensagemUsuario, mensagemDesenvolvedor));
+		return ResponseEntity.badRequest().body(erros);
+	}
+	
+	@ExceptionHandler( { ExistingDependentWithSameCPFException.class } )
+	public ResponseEntity<Object> handleDependentWithSameCpfException(ExistingDependentWithSameCPFException ex) {
+		String mensagemUsuario = messageSource.getMessage("dependente.com.cpf.existente",null, LocaleContextHolder.getLocale());  
 		String mensagemDesenvolvedor = ex.toString();
 		List<Erro> erros = Arrays.asList(new Erro(mensagemUsuario, mensagemDesenvolvedor));
 		return ResponseEntity.badRequest().body(erros);
